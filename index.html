@@ -1,290 +1,133 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rekap Penjualan Voucher - AGAM.NET</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 10px; }
-    .container { max-width: 100%; margin: auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    h2 { text-align: center; color: #333; font-size: 18px; line-height: 1.4; }
-    label { font-size: 14px; font-weight: bold; }
-    input[type="text"], input[type="date"], input[type="number"], select {
-      width: 100%; padding: 8px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
-    }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
-    th { background: #ffeb3b; color: #000; font-size: 12px; }
-    .btn { margin: 5px 0; padding: 10px; border: none; border-radius: 8px; cursor: pointer; color: #fff; font-weight: bold; font-size: 14px; width: 100%; }
-    .hitung { background: #4caf50; }
-    .simpan { background: #ff9800; }
-    .export { background: #f44336; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>Rekap Penjualan Voucher <br> AGAM.NET</h2>
-    
-    <label>Tanggal Rekap:</label>
-    <input type="date" id="tanggal">
-    
-    <label>Nama Reseller:</label>
-    <input type="text" id="reseller" placeholder="Nama Reseller">
+<script>
+function exportExcel() {
+  let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
+  let pilih = document.getElementById("pilihReseller").value;
+  let dataExport = [];
 
-    <table id="rekapTable">
-      <tr>
-        <th>JENIS</th>
-        <th>QTY</th>
-        <th>SISA</th>
-        <th>TERJUAL</th>
-        <th>JUMLAH BAYAR</th>
-      </tr>
-      <tr>
-        <td>2.000</td>
-        <td><input type="number" id="qty2000" value="0"></td>
-        <td><input type="number" id="sisa2000" value="0"></td>
-        <td id="jual2000">0</td>
-        <td id="bayar2000">-</td>
-      </tr>
-      <tr>
-        <td>3.000</td>
-        <td><input type="number" id="qty3000" value="0"></td>
-        <td><input type="number" id="sisa3000" value="0"></td>
-        <td id="jual3000">0</td>
-        <td id="bayar3000">-</td>
-      </tr>
-      <tr>
-        <td>5.000</td>
-        <td><input type="number" id="qty5000" value="0"></td>
-        <td><input type="number" id="sisa5000" value="0"></td>
-        <td id="jual5000">0</td>
-        <td id="bayar5000">-</td>
-      </tr>
-      <tr>
-        <td>20.000</td>
-        <td><input type="number" id="qty20000" value="0"></td>
-        <td><input type="number" id="sisa20000" value="0"></td>
-        <td id="jual20000">0</td>
-        <td id="bayar20000">-</td>
-      </tr>
-      <tr>
-        <td>50.000</td>
-        <td><input type="number" id="qty50000" value="0"></td>
-        <td><input type="number" id="sisa50000" value="0"></td>
-        <td id="jual50000">0</td>
-        <td id="bayar50000">-</td>
-      </tr>
-      <tr>
-        <th colspan="4">Total</th>
-        <th id="totalBayar">-</th>
-      </tr>
-      <tr>
-        <th colspan="4">Komisi (10%)</th>
-        <th id="komisi">-</th>
-      </tr>
-    </table>
+  if (pilih === "all") {
+    // REKAP SEMUA RESELLER
+    for (let r in db) {
+      let totalTerjual = 0, totalBayar = 0, totalKomisi = 0;
+      let row = { Reseller: r };
 
-    <button class="btn hitung" onclick="hitung()">HITUNG</button>
-    <button class="btn simpan" onclick="simpan()">SIMPAN</button>
+      ["2000","3000","5000","20000","50000"].forEach(jenis => row["V"+jenis] = 0);
 
-    <hr>
-
-    <label>Pilih Reseller untuk Export:</label>
-    <select id="pilihReseller">
-      <option value="all">-- Semua Reseller --</option>
-    </select>
-    <button class="btn export" onclick="exportExcel()">EXPORT EXCEL</button>
-    <button class="btn export" onclick="exportPDF()">EXPORT PDF</button>
-  </div>
-
-  <script>
-    let harga = {2000:2000, 3000:3000, 5000:5000, 20000:20000, 50000:50000};
-
-    function hitung() {
-      let total = 0;
-      for (let key in harga) {
-        let qty = parseInt(document.getElementById("qty"+key).value) || 0;
-        let sisa = parseInt(document.getElementById("sisa"+key).value) || 0;
-        let terjual = qty - sisa;
-        let bayar = terjual * harga[key];
-
-        document.getElementById("jual"+key).innerText = terjual;
-        document.getElementById("bayar"+key).innerText = bayar.toLocaleString("id-ID");
-
-        total += bayar;
-      }
-      document.getElementById("totalBayar").innerText = total.toLocaleString("id-ID");
-      document.getElementById("komisi").innerText = (total * 0.1).toLocaleString("id-ID");
-    }
-
-    function simpan() {
-      let reseller = document.getElementById("reseller").value.trim();
-      if (!reseller) {
-        alert("⚠️ Isi nama reseller dulu!");
-        return;
-      }
-
-      let data = {
-        tanggal: document.getElementById("tanggal").value,
-        reseller,
-        total: parseInt(document.getElementById("totalBayar").innerText.replace(/\./g, "")) || 0,
-        komisi: parseInt(document.getElementById("komisi").innerText.replace(/\./g, "")) || 0,
-        rekap: {}
-      };
-
-      for (let key in harga) {
-        let qty = parseInt(document.getElementById("qty"+key).value) || 0;
-        let sisa = parseInt(document.getElementById("sisa"+key).value) || 0;
-        let terjual = parseInt(document.getElementById("jual"+key).innerText) || 0;
-        let bayar = parseInt(document.getElementById("bayar"+key).innerText.replace(/\./g, "")) || 0;
-        data.rekap[key] = { qty, sisa, terjual, bayar };
-      }
-
-      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
-      if (!db[reseller]) db[reseller] = [];
-      db[reseller].push(data);
-      localStorage.setItem("rekapAll", JSON.stringify(db));
-
-      updateDropdown();
-      alert("✅ Data tersimpan!");
-    }
-
-    function updateDropdown() {
-      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
-      let sel = document.getElementById("pilihReseller");
-      sel.innerHTML = '<option value="all">-- Semua Reseller --</option>';
-      for (let r in db) {
-        let opt = document.createElement("option");
-        opt.value = r;
-        opt.text = r;
-        sel.appendChild(opt);
-      }
-    }
-
-    function exportExcel() {
-      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
-      let pilih = document.getElementById("pilihReseller").value;
-      let dataExport = [];
-
-      if (pilih === "all") {
-        // semua reseller
-        for (let r in db) {
-          db[r].forEach(entry => {
-            // untuk setiap rekap voucher, buat baris per voucher
-            for (let jenis in entry.rekap) {
-              let rk = entry.rekap[jenis];
-              dataExport.push({
-                Tanggal: entry.tanggal,
-                Reseller: r,
-                Jenis: jenis,
-                QTY: rk.qty,
-                SISA: rk.sisa,
-                TERJUAL: rk.terjual,
-                JUMLAH_BAYAR: rk.bayar,
-                Total: entry.total,
-                Komisi: entry.komisi
-              });
-            }
-          });
+      db[r].forEach(entry => {
+        for (let jenis in entry.rekap) {
+          row["V"+jenis] += entry.rekap[jenis].terjual;
+          totalTerjual += entry.rekap[jenis].terjual;
         }
-      } else {
-        // hanya reseller terpilih
-        (db[pilih] || []).forEach(entry => {
-          for (let jenis in entry.rekap) {
-            let rk = entry.rekap[jenis];
-            dataExport.push({
-              Tanggal: entry.tanggal,
-              Reseller: pilih,
-              Jenis: jenis,
-              QTY: rk.qty,
-              SISA: rk.sisa,
-              TERJUAL: rk.terjual,
-              JUMLAH_BAYAR: rk.bayar,
-              Total: entry.total,
-              Komisi: entry.komisi
-            });
-          }
-        });
-      }
-
-      if (dataExport.length === 0) {
-        alert("⚠️ Tidak ada data untuk diexport!");
-        return;
-      }
-
-      let ws = XLSX.utils.json_to_sheet(dataExport);
-      let wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Rekap");
-      XLSX.writeFile(wb, "Rekap_Voucher.xlsx");
-    }
-
-    function exportPDF() {
-      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
-      let pilih = document.getElementById("pilihReseller").value;
-      let body = [];
-
-      if (pilih === "all") {
-        for (let r in db) {
-          db[r].forEach(entry => {
-            for (let jenis in entry.rekap) {
-              let rk = entry.rekap[jenis];
-              body.push([
-                entry.tanggal,
-                r,
-                jenis,
-                rk.qty,
-                rk.sisa,
-                rk.terjual,
-                rk.bayar,
-                entry.total,
-                entry.komisi
-              ]);
-            }
-          });
-        }
-      } else {
-        (db[pilih] || []).forEach(entry => {
-          for (let jenis in entry.rekap) {
-            let rk = entry.rekap[jenis];
-            body.push([
-              entry.tanggal,
-              pilih,
-              jenis,
-              rk.qty,
-              rk.sisa,
-              rk.terjual,
-              rk.bayar,
-              entry.total,
-              entry.komisi
-            ]);
-          }
-        });
-      }
-
-      if (body.length === 0) {
-        alert("⚠️ Tidak ada data untuk diexport!");
-        return;
-      }
-
-      const { jsPDF } = window.jspdf;
-      let doc = new jsPDF();
-      doc.setFontSize(14);
-      doc.text("Rekap Penjualan Voucher AGAM.NET", 20, 20);
-
-      doc.autoTable({
-        head: [["Tanggal","Reseller","Jenis","QTY","SISA","TERJUAL","JUMLAH BAYAR","Total","Komisi"]],
-        body: body,
-        startY: 30,
-        styles: { fontSize: 10 }
+        totalBayar += entry.total;
+        totalKomisi += entry.komisi;
       });
 
-      doc.save("Rekap_Voucher.pdf");
+      row["Total_Terjual"] = totalTerjual;
+      row["Jumlah_Bayar"] = totalBayar;
+      row["Komisi"] = totalKomisi;
+
+      dataExport.push(row);
     }
 
-    window.onload = updateDropdown;
-  </script>
-</body>
-</html>
+  } else {
+    // DETAIL RESELLER TERTENTU
+    (db[pilih] || []).forEach(entry => {
+      for (let jenis in entry.rekap) {
+        let rk = entry.rekap[jenis];
+        dataExport.push({
+          "Tanggal Rekap": entry.tanggal,
+          "Reseller": pilih,
+          "Jenis": jenis,
+          "QTY": rk.qty,
+          "SISA": rk.sisa,
+          "TERJUAL": rk.terjual,
+          "JUMLAH_BAYAR": rk.bayar,
+          "Total": entry.total,
+          "Komisi": entry.komisi
+        });
+      }
+    });
+  }
+
+  if (dataExport.length === 0) {
+    alert("⚠️ Tidak ada data untuk diexport!");
+    return;
+  }
+
+  let ws = XLSX.utils.json_to_sheet(dataExport);
+  let wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Rekap");
+  XLSX.writeFile(wb, "Rekap_Voucher.xlsx");
+}
+
+function exportPDF() {
+  let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
+  let pilih = document.getElementById("pilihReseller").value;
+  let body = [];
+  let head = [];
+
+  const { jsPDF } = window.jspdf;
+  let doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("Rekap Penjualan Voucher AGAM.NET", 20, 20);
+
+  if (pilih === "all") {
+    head = [["Reseller","V2000","V3000","V5000","V20000","V50000","Total Terjual","Jumlah Bayar","Komisi"]];
+
+    for (let r in db) {
+      let totalTerjual = 0, totalBayar = 0, totalKomisi = 0;
+      let row = [r,0,0,0,0,0,0,0,0];
+
+      db[r].forEach(entry => {
+        for (let jenis in entry.rekap) {
+          let idx = ["2000","3000","5000","20000","50000"].indexOf(jenis);
+          if (idx >= 0) {
+            row[idx+1] += entry.rekap[jenis].terjual;
+            totalTerjual += entry.rekap[jenis].terjual;
+          }
+        }
+        totalBayar += entry.total;
+        totalKomisi += entry.komisi;
+      });
+
+      row[6] = totalTerjual;
+      row[7] = totalBayar.toLocaleString("id-ID");
+      row[8] = totalKomisi.toLocaleString("id-ID");
+      body.push(row);
+    }
+
+  } else {
+    head = [["Tanggal","Reseller","Jenis","QTY","SISA","TERJUAL","JUMLAH BAYAR","Total","Komisi"]];
+
+    (db[pilih] || []).forEach(entry => {
+      for (let jenis in entry.rekap) {
+        let rk = entry.rekap[jenis];
+        body.push([
+          entry.tanggal,
+          pilih,
+          jenis,
+          rk.qty,
+          rk.sisa,
+          rk.terjual,
+          rk.bayar.toLocaleString("id-ID"),
+          entry.total.toLocaleString("id-ID"),
+          entry.komisi.toLocaleString("id-ID")
+        ]);
+      }
+    });
+
+    // tambahkan header di atas tabel
+    doc.setFontSize(12);
+    doc.text("Tanggal Rekap: " + (db[pilih]?.[0]?.tanggal || "-"), 20, 30);
+    doc.text("Reseller: " + pilih, 20, 37);
+  }
+
+  doc.autoTable({
+    head: head,
+    body: body,
+    startY: pilih === "all" ? 30 : 45,
+    styles: { fontSize: 10 }
+  });
+
+  doc.save("Rekap_Voucher.pdf");
+}
+</script>
