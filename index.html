@@ -8,14 +8,17 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-top: 20px; }
-    h2 { text-align: center; color: #333; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background: #ffeb3b; color: #000; }
-    input[type="number"] { width: 80px; padding: 4px; text-align: center; }
-    .btn { margin: 8px 4px; padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; color: #fff; font-weight: bold; }
+    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 10px; }
+    .container { max-width: 100%; margin: auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #333; font-size: 18px; line-height: 1.4; }
+    label { font-size: 14px; font-weight: bold; }
+    input[type="text"], input[type="date"], input[type="number"], select {
+      width: 100%; padding: 8px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+    th { background: #ffeb3b; color: #000; font-size: 12px; }
+    .btn { margin: 5px 0; padding: 10px; border: none; border-radius: 8px; cursor: pointer; color: #fff; font-weight: bold; font-size: 14px; width: 100%; }
     .hitung { background: #4caf50; }
     .simpan { background: #ff9800; }
     .export { background: #f44336; }
@@ -26,17 +29,18 @@
     <h2>Rekap Penjualan Voucher <br> AGAM.NET</h2>
     
     <label>Tanggal Rekap:</label>
-    <input type="date" id="tanggal"><br><br>
+    <input type="date" id="tanggal">
+    
     <label>Nama Reseller:</label>
-    <input type="text" id="reseller" placeholder="Nama Reseller"><br><br>
+    <input type="text" id="reseller" placeholder="Nama Reseller">
 
     <table id="rekapTable">
       <tr>
-        <th>JENIS VOUCHER</th>
+        <th>JENIS</th>
         <th>QTY</th>
         <th>SISA</th>
         <th>TERJUAL</th>
-        <th>JUMLAH BAYAR (Rp)</th>
+        <th>JUMLAH BAYAR</th>
       </tr>
       <tr>
         <td>2.000</td>
@@ -78,17 +82,22 @@
         <th id="totalBayar">-</th>
       </tr>
       <tr>
-        <th colspan="4">Komisi Reseller (10%)</th>
+        <th colspan="4">Komisi (10%)</th>
         <th id="komisi">-</th>
       </tr>
     </table>
 
-    <div style="text-align:center; margin-top:15px;">
-      <button class="btn hitung" onclick="hitung()">HITUNG</button>
-      <button class="btn simpan" onclick="simpan()">SIMPAN</button>
-      <button class="btn export" onclick="exportExcel()">EXPORT EXCEL</button>
-      <button class="btn export" onclick="exportPDF()">EXPORT PDF</button>
-    </div>
+    <button class="btn hitung" onclick="hitung()">HITUNG</button>
+    <button class="btn simpan" onclick="simpan()">SIMPAN</button>
+
+    <hr>
+
+    <label>Pilih Reseller untuk Export:</label>
+    <select id="pilihReseller">
+      <option value="all">-- Semua Reseller --</option>
+    </select>
+    <button class="btn export" onclick="exportExcel()">EXPORT EXCEL</button>
+    <button class="btn export" onclick="exportPDF()">EXPORT PDF</button>
   </div>
 
   <script>
@@ -112,9 +121,12 @@
     }
 
     function simpan() {
+      let reseller = document.getElementById("reseller").value.trim();
+      if (!reseller) return alert("⚠️ Isi nama reseller dulu!");
+
       let data = {
         tanggal: document.getElementById("tanggal").value,
-        reseller: document.getElementById("reseller").value,
+        reseller,
         total: parseInt(document.getElementById("totalBayar").innerText.replace(/\./g,'')) || 0,
         komisi: parseInt(document.getElementById("komisi").innerText.replace(/\./g,'')) || 0,
         rekap: {}
@@ -125,55 +137,86 @@
         let sisa = parseInt(document.getElementById("sisa"+key).value) || 0;
         let terjual = parseInt(document.getElementById("jual"+key).innerText) || 0;
         let bayar = parseInt(document.getElementById("bayar"+key).innerText.replace(/\./g,'')) || 0;
-
         data.rekap[key] = { qty, sisa, terjual, bayar };
       }
 
-      fetch("https://script.google.com/macros/s/AKfycbxa5kAECUnALVPETnEF8t3MRQPSDRFZmYludXTFjmwgQCHMDfOAoFX4CyTjF2-7atYe/exec", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      })
-      .then(res => res.text())
-      .then(txt => {
-        alert(txt); // tampilkan pesan dari Apps Script
-      })
-      .catch(err => alert("Error: " + err));
+      // ambil database lokal
+      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
+      if (!db[reseller]) db[reseller] = [];
+      db[reseller].push(data);
+
+      // simpan kembali
+      localStorage.setItem("rekapAll", JSON.stringify(db));
+
+      // update dropdown reseller
+      updateDropdown();
+
+      alert("✅ Data tersimpan di HP!");
     }
 
-    // EXPORT TO EXCEL
+    function updateDropdown() {
+      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
+      let select = document.getElementById("pilihReseller");
+      select.innerHTML = '<option value="all">-- Semua Reseller --</option>';
+      for (let r in db) {
+        let opt = document.createElement("option");
+        opt.value = r;
+        opt.text = r;
+        select.appendChild(opt);
+      }
+    }
+
     function exportExcel() {
-      let table = document.getElementById("rekapTable");
-      let wb = XLSX.utils.table_to_book(table, {sheet:"Rekap"});
+      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
+      let pilih = document.getElementById("pilihReseller").value;
+      let dataExport = [];
+
+      if (pilih === "all") {
+        for (let r in db) {
+          db[r].forEach(d => dataExport.push({Reseller: r, ...d}));
+        }
+      } else {
+        db[pilih].forEach(d => dataExport.push({Reseller: pilih, ...d}));
+      }
+
+      if (dataExport.length === 0) return alert("⚠️ Tidak ada data untuk export!");
+
+      let ws = XLSX.utils.json_to_sheet(dataExport);
+      let wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap");
       XLSX.writeFile(wb, "Rekap_Voucher.xlsx");
     }
 
-    // EXPORT TO PDF
     function exportPDF() {
+      let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
+      let pilih = document.getElementById("pilihReseller").value;
+      let dataExport = [];
+
+      if (pilih === "all") {
+        for (let r in db) {
+          db[r].forEach(d => dataExport.push([d.tanggal, r, d.total, d.komisi]));
+        }
+      } else {
+        db[pilih].forEach(d => dataExport.push([d.tanggal, pilih, d.total, d.komisi]));
+      }
+
+      if (dataExport.length === 0) return alert("⚠️ Tidak ada data untuk export!");
+
       const { jsPDF } = window.jspdf;
       let doc = new jsPDF();
-
       doc.setFontSize(14);
       doc.text("Rekap Penjualan Voucher AGAM.NET", 20, 20);
-      doc.text("Tanggal: " + document.getElementById("tanggal").value, 20, 30);
-      doc.text("Reseller: " + document.getElementById("reseller").value, 20, 40);
-
-      let rows = [];
-      let table = document.querySelectorAll("#rekapTable tr");
-      table.forEach((tr, i) => {
-        let row = [];
-        tr.querySelectorAll("td, th").forEach(td => row.push(td.innerText));
-        rows.push(row);
-      });
 
       doc.autoTable({
-        head: [rows[0]],
-        body: rows.slice(1),
-        startY: 50
+        head: [["Tanggal", "Reseller", "Total", "Komisi"]],
+        body: dataExport,
+        startY: 30
       });
 
       doc.save("Rekap_Voucher.pdf");
     }
+
+    window.onload = updateDropdown;
   </script>
 </body>
 </html>
