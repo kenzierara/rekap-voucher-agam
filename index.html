@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rekap Penjualan Voucher - AGAM.NET</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -66,7 +68,7 @@
     <label>Nama Reseller:</label>
     <input type="text" id="reseller" placeholder="Nama Reseller"><br><br>
 
-    <table>
+    <table id="rekapTable">
       <tr>
         <th>JENIS VOUCHER</th>
         <th>QTY</th>
@@ -152,16 +154,6 @@
       let data = {
         tanggal: document.getElementById("tanggal").value,
         reseller: document.getElementById("reseller").value,
-        qty2000: document.getElementById("qty2000").value,
-        sisa2000: document.getElementById("sisa2000").value,
-        qty3000: document.getElementById("qty3000").value,
-        sisa3000: document.getElementById("sisa3000").value,
-        qty5000: document.getElementById("qty5000").value,
-        sisa5000: document.getElementById("sisa5000").value,
-        qty20000: document.getElementById("qty20000").value,
-        sisa20000: document.getElementById("sisa20000").value,
-        qty50000: document.getElementById("qty50000").value,
-        sisa50000: document.getElementById("sisa50000").value,
         total: document.getElementById("totalBayar").innerText,
         komisi: document.getElementById("komisi").innerText
       };
@@ -173,23 +165,44 @@
       .then(res => res.text())
       .then(txt => {
         alert("Data berhasil disimpan ke Google Sheets!");
-        document.querySelectorAll("input").forEach(i => i.value = "0");
-        document.getElementById("reseller").value = "";
-        document.getElementById("tanggal").value = "";
-        document.querySelectorAll("td[id]").forEach(td => td.innerText = "0");
-        document.getElementById("totalBayar").innerText = "-";
-        document.getElementById("komisi").innerText = "-";
       })
       .catch(err => alert("Error: " + err));
     }
 
+    // EXPORT TO EXCEL
     function exportExcel() {
-      alert("Export Excel masih dummy, nanti bisa pakai SheetJS atau backend.");
+      let table = document.getElementById("rekapTable");
+      let wb = XLSX.utils.table_to_book(table, {sheet:"Rekap"});
+      XLSX.writeFile(wb, "Rekap_Voucher.xlsx");
     }
 
+    // EXPORT TO PDF
     function exportPDF() {
-      alert("Export PDF masih dummy, nanti bisa pakai jsPDF.");
+      const { jsPDF } = window.jspdf;
+      let doc = new jsPDF();
+
+      doc.setFontSize(14);
+      doc.text("Rekap Penjualan Voucher AGAM.NET", 20, 20);
+      doc.text("Tanggal: " + document.getElementById("tanggal").value, 20, 30);
+      doc.text("Reseller: " + document.getElementById("reseller").value, 20, 40);
+
+      let rows = [];
+      let table = document.querySelectorAll("#rekapTable tr");
+      table.forEach((tr, i) => {
+        let row = [];
+        tr.querySelectorAll("td, th").forEach(td => row.push(td.innerText));
+        rows.push(row);
+      });
+
+      doc.autoTable({
+        head: [rows[0]],
+        body: rows.slice(1),
+        startY: 50
+      });
+
+      doc.save("Rekap_Voucher.pdf");
     }
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </body>
 </html>
