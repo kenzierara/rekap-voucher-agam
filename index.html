@@ -117,18 +117,21 @@
         total += bayar;
       }
       document.getElementById("totalBayar").innerText = total.toLocaleString("id-ID");
-      document.getElementById("komisi").innerText = (total*0.1).toLocaleString("id-ID");
+      document.getElementById("komisi").innerText = (total * 0.1).toLocaleString("id-ID");
     }
 
     function simpan() {
       let reseller = document.getElementById("reseller").value.trim();
-      if (!reseller) return alert("⚠️ Isi nama reseller dulu!");
+      if (!reseller) {
+        alert("⚠️ Isi nama reseller dulu!");
+        return;
+      }
 
       let data = {
         tanggal: document.getElementById("tanggal").value,
         reseller,
-        total: parseInt(document.getElementById("totalBayar").innerText.replace(/\./g,'')) || 0,
-        komisi: parseInt(document.getElementById("komisi").innerText.replace(/\./g,'')) || 0,
+        total: parseInt(document.getElementById("totalBayar").innerText.replace(/\./g, "")) || 0,
+        komisi: parseInt(document.getElementById("komisi").innerText.replace(/\./g, "")) || 0,
         rekap: {}
       };
 
@@ -136,33 +139,28 @@
         let qty = parseInt(document.getElementById("qty"+key).value) || 0;
         let sisa = parseInt(document.getElementById("sisa"+key).value) || 0;
         let terjual = parseInt(document.getElementById("jual"+key).innerText) || 0;
-        let bayar = parseInt(document.getElementById("bayar"+key).innerText.replace(/\./g,'')) || 0;
+        let bayar = parseInt(document.getElementById("bayar"+key).innerText.replace(/\./g, "")) || 0;
         data.rekap[key] = { qty, sisa, terjual, bayar };
       }
 
-      // ambil database lokal
       let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
       if (!db[reseller]) db[reseller] = [];
       db[reseller].push(data);
-
-      // simpan kembali
       localStorage.setItem("rekapAll", JSON.stringify(db));
 
-      // update dropdown reseller
       updateDropdown();
-
-      alert("✅ Data tersimpan di HP!");
+      alert("✅ Data tersimpan!");
     }
 
     function updateDropdown() {
       let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
-      let select = document.getElementById("pilihReseller");
-      select.innerHTML = '<option value="all">-- Semua Reseller --</option>';
+      let sel = document.getElementById("pilihReseller");
+      sel.innerHTML = '<option value="all">-- Semua Reseller --</option>';
       for (let r in db) {
         let opt = document.createElement("option");
         opt.value = r;
         opt.text = r;
-        select.appendChild(opt);
+        sel.appendChild(opt);
       }
     }
 
@@ -172,14 +170,50 @@
       let dataExport = [];
 
       if (pilih === "all") {
+        // semua reseller
         for (let r in db) {
-          db[r].forEach(d => dataExport.push({Reseller: r, ...d}));
+          db[r].forEach(entry => {
+            // untuk setiap rekap voucher, buat baris per voucher
+            for (let jenis in entry.rekap) {
+              let rk = entry.rekap[jenis];
+              dataExport.push({
+                Tanggal: entry.tanggal,
+                Reseller: r,
+                Jenis: jenis,
+                QTY: rk.qty,
+                SISA: rk.sisa,
+                TERJUAL: rk.terjual,
+                JUMLAH_BAYAR: rk.bayar,
+                Total: entry.total,
+                Komisi: entry.komisi
+              });
+            }
+          });
         }
       } else {
-        db[pilih].forEach(d => dataExport.push({Reseller: pilih, ...d}));
+        // hanya reseller terpilih
+        (db[pilih] || []).forEach(entry => {
+          for (let jenis in entry.rekap) {
+            let rk = entry.rekap[jenis];
+            dataExport.push({
+              Tanggal: entry.tanggal,
+              Reseller: pilih,
+              Jenis: jenis,
+              QTY: rk.qty,
+              SISA: rk.sisa,
+              TERJUAL: rk.terjual,
+              JUMLAH_BAYAR: rk.bayar,
+              Total: entry.total,
+              Komisi: entry.komisi
+            });
+          }
+        });
       }
 
-      if (dataExport.length === 0) return alert("⚠️ Tidak ada data untuk export!");
+      if (dataExport.length === 0) {
+        alert("⚠️ Tidak ada data untuk diexport!");
+        return;
+      }
 
       let ws = XLSX.utils.json_to_sheet(dataExport);
       let wb = XLSX.utils.book_new();
@@ -190,17 +224,50 @@
     function exportPDF() {
       let db = JSON.parse(localStorage.getItem("rekapAll")) || {};
       let pilih = document.getElementById("pilihReseller").value;
-      let dataExport = [];
+      let body = [];
 
       if (pilih === "all") {
         for (let r in db) {
-          db[r].forEach(d => dataExport.push([d.tanggal, r, d.total, d.komisi]));
+          db[r].forEach(entry => {
+            for (let jenis in entry.rekap) {
+              let rk = entry.rekap[jenis];
+              body.push([
+                entry.tanggal,
+                r,
+                jenis,
+                rk.qty,
+                rk.sisa,
+                rk.terjual,
+                rk.bayar,
+                entry.total,
+                entry.komisi
+              ]);
+            }
+          });
         }
       } else {
-        db[pilih].forEach(d => dataExport.push([d.tanggal, pilih, d.total, d.komisi]));
+        (db[pilih] || []).forEach(entry => {
+          for (let jenis in entry.rekap) {
+            let rk = entry.rekap[jenis];
+            body.push([
+              entry.tanggal,
+              pilih,
+              jenis,
+              rk.qty,
+              rk.sisa,
+              rk.terjual,
+              rk.bayar,
+              entry.total,
+              entry.komisi
+            ]);
+          }
+        });
       }
 
-      if (dataExport.length === 0) return alert("⚠️ Tidak ada data untuk export!");
+      if (body.length === 0) {
+        alert("⚠️ Tidak ada data untuk diexport!");
+        return;
+      }
 
       const { jsPDF } = window.jspdf;
       let doc = new jsPDF();
@@ -208,9 +275,10 @@
       doc.text("Rekap Penjualan Voucher AGAM.NET", 20, 20);
 
       doc.autoTable({
-        head: [["Tanggal", "Reseller", "Total", "Komisi"]],
-        body: dataExport,
-        startY: 30
+        head: [["Tanggal","Reseller","Jenis","QTY","SISA","TERJUAL","JUMLAH BAYAR","Total","Komisi"]],
+        body: body,
+        startY: 30,
+        styles: { fontSize: 10 }
       });
 
       doc.save("Rekap_Voucher.pdf");
