@@ -6,54 +6,16 @@
   <title>Rekap Penjualan Voucher - AGAM.NET</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fa;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      margin-top: 20px;
-    }
-    h2 {
-      text-align: center;
-      color: #333;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background: #ffeb3b;
-      color: #000;
-    }
-    input[type="number"] {
-      width: 80px;
-      padding: 4px;
-      text-align: center;
-    }
-    .btn {
-      margin: 8px 4px;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      color: #fff;
-      font-weight: bold;
-    }
+    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-top: 20px; }
+    h2 { text-align: center; color: #333; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #ffeb3b; color: #000; }
+    input[type="number"] { width: 80px; padding: 4px; text-align: center; }
+    .btn { margin: 8px 4px; padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; color: #fff; font-weight: bold; }
     .hitung { background: #4caf50; }
     .simpan { background: #ff9800; }
     .export { background: #f44336; }
@@ -130,10 +92,10 @@
   </div>
 
   <script>
-    function hitung() {
-      let harga = {2000:2000, 3000:3000, 5000:5000, 20000:20000, 50000:50000};
-      let total = 0;
+    let harga = {2000:2000, 3000:3000, 5000:5000, 20000:20000, 50000:50000};
 
+    function hitung() {
+      let total = 0;
       for (let key in harga) {
         let qty = parseInt(document.getElementById("qty"+key).value) || 0;
         let sisa = parseInt(document.getElementById("sisa"+key).value) || 0;
@@ -145,7 +107,6 @@
 
         total += bayar;
       }
-
       document.getElementById("totalBayar").innerText = total.toLocaleString("id-ID");
       document.getElementById("komisi").innerText = (total*0.1).toLocaleString("id-ID");
     }
@@ -154,17 +115,28 @@
       let data = {
         tanggal: document.getElementById("tanggal").value,
         reseller: document.getElementById("reseller").value,
-        total: document.getElementById("totalBayar").innerText,
-        komisi: document.getElementById("komisi").innerText
+        total: parseInt(document.getElementById("totalBayar").innerText.replace(/\./g,'')) || 0,
+        komisi: parseInt(document.getElementById("komisi").innerText.replace(/\./g,'')) || 0,
+        rekap: {}
       };
 
-      fetch("https://script.google.com/macros/s/AKfycbx8SszZW1T3pmoUd29lTADvuuRoIrMsG34Y5SujkgbE6rKwVg865jjTfYmTvvJ1fS4t/exec", {
+      for (let key in harga) {
+        let qty = parseInt(document.getElementById("qty"+key).value) || 0;
+        let sisa = parseInt(document.getElementById("sisa"+key).value) || 0;
+        let terjual = parseInt(document.getElementById("jual"+key).innerText) || 0;
+        let bayar = parseInt(document.getElementById("bayar"+key).innerText.replace(/\./g,'')) || 0;
+
+        data.rekap[key] = { qty, sisa, terjual, bayar };
+      }
+
+      fetch("https://script.google.com/macros/s/AKfycbxa5kAECUnALVPETnEF8t3MRQPSDRFZmYludXTFjmwgQCHMDfOAoFX4CyTjF2-7atYe/exec", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       })
       .then(res => res.text())
       .then(txt => {
-        alert("Data berhasil disimpan ke Google Sheets!");
+        alert(txt); // tampilkan pesan dari Apps Script
       })
       .catch(err => alert("Error: " + err));
     }
@@ -203,6 +175,5 @@
       doc.save("Rekap_Voucher.pdf");
     }
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </body>
 </html>
